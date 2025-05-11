@@ -1,0 +1,147 @@
+-- Kenyan Agricultural Management System Database
+-- Created by Lilian Oyugi (oyugililian@gmail.com)
+
+-- Enable foreign key constraints
+PRAGMA foreign_keys = ON;
+
+-- Create Counties table (Kenyan counties)
+CREATE TABLE Counties (
+    county_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    county_name VARCHAR(50) NOT NULL UNIQUE,
+    region VARCHAR(50) NOT NULL,
+    average_rainfall_mm DECIMAL(5,2),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create Farmers table
+CREATE TABLE Farmers (
+    farmer_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    national_id VARCHAR(20) NOT NULL UNIQUE,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    gender CHAR(1) CHECK (gender IN ('M', 'F')),
+    date_of_birth DATE,
+    phone_number VARCHAR(15) NOT NULL UNIQUE,
+    email VARCHAR(100),
+    village VARCHAR(50) NOT NULL,
+    sub_county VARCHAR(50) NOT NULL,
+    county_id INTEGER NOT NULL,
+    registration_date DATE DEFAULT CURRENT_DATE,
+    FOREIGN KEY (county_id) REFERENCES Counties(county_id)
+);
+
+-- Create Farms table
+CREATE TABLE Farms (
+    farm_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    farmer_id INTEGER NOT NULL,
+    farm_name VARCHAR(100),
+    size_acres DECIMAL(10,2) NOT NULL,
+    gps_coordinates VARCHAR(100),
+    soil_type VARCHAR(50),
+    water_source VARCHAR(50),
+    county_id INTEGER NOT NULL,
+    FOREIGN KEY (farmer_id) REFERENCES Farmers(farmer_id),
+    FOREIGN KEY (county_id) REFERENCES Counties(county_id)
+);
+
+-- Create Crops table
+CREATE TABLE Crops (
+    crop_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    crop_name VARCHAR(50) NOT NULL UNIQUE,
+    variety VARCHAR(50),
+    growing_period_days INTEGER,
+    optimal_rainfall_mm DECIMAL(5,2)
+);
+
+-- Create Farm_Crops table (Many-to-Many relationship)
+CREATE TABLE Farm_Crops (
+    farm_crop_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    farm_id INTEGER NOT NULL,
+    crop_id INTEGER NOT NULL,
+    planting_date DATE NOT NULL,
+    harvest_date DATE,
+    area_acres DECIMAL(5,2) NOT NULL,
+    expected_yield_kg DECIMAL(10,2),
+    actual_yield_kg DECIMAL(10,2),
+    status VARCHAR(20) DEFAULT 'Growing' CHECK (status IN ('Planted', 'Growing', 'Harvested', 'Failed')),
+    FOREIGN KEY (farm_id) REFERENCES Farms(farm_id),
+    FOREIGN KEY (crop_id) REFERENCES Crops(crop_id),
+    UNIQUE(farm_id, crop_id, planting_date)
+);
+
+-- Create Livestock table
+CREATE TABLE Livestock (
+    livestock_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    livestock_type VARCHAR(50) NOT NULL,
+    breed VARCHAR(50),
+    average_productivity VARCHAR(100)
+);
+
+-- Create Farm_Livestock table
+CREATE TABLE Farm_Livestock (
+    farm_livestock_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    farm_id INTEGER NOT NULL,
+    livestock_id INTEGER NOT NULL,
+    quantity INTEGER NOT NULL,
+    acquisition_date DATE,
+    notes TEXT,
+    FOREIGN KEY (farm_id) REFERENCES Farms(farm_id),
+    FOREIGN KEY (livestock_id) REFERENCES Livestock(livestock_id)
+);
+
+-- Create Buyers table
+CREATE TABLE Buyers (
+    buyer_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    buyer_name VARCHAR(100) NOT NULL,
+    company_name VARCHAR(100),
+    phone_number VARCHAR(15) NOT NULL,
+    email VARCHAR(100),
+    buyer_type VARCHAR(20) CHECK (buyer_type IN ('Individual', 'Cooperative', 'Processor', 'Exporter'))
+);
+
+-- Create Sales table
+CREATE TABLE Sales (
+    sale_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    farm_id INTEGER NOT NULL,
+    buyer_id INTEGER NOT NULL,
+    product_type VARCHAR(10) NOT NULL CHECK (product_type IN ('Crop', 'Livestock')),
+    product_id INTEGER NOT NULL, -- references either crop_id or livestock_id
+    quantity DECIMAL(10,2) NOT NULL,
+    unit_price DECIMAL(10,2) NOT NULL,
+    sale_date DATE NOT NULL,
+    payment_method VARCHAR(20),
+    payment_status VARCHAR(20) DEFAULT 'Pending' CHECK (payment_status IN ('Pending', 'Partial', 'Complete')),
+    FOREIGN KEY (farm_id) REFERENCES Farms(farm_id),
+    FOREIGN KEY (buyer_id) REFERENCES Buyers(buyer_id)
+);
+
+-- Create Extension_Officers table
+CREATE TABLE Extension_Officers (
+    officer_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    national_id VARCHAR(20) NOT NULL UNIQUE,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    phone_number VARCHAR(15) NOT NULL UNIQUE,
+    email VARCHAR(100) UNIQUE,
+    specialization VARCHAR(100),
+    county_id INTEGER NOT NULL,
+    FOREIGN KEY (county_id) REFERENCES Counties(county_id)
+);
+
+-- Create Farmer_Training table (Many-to-Many relationship)
+CREATE TABLE Farmer_Training (
+    training_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    officer_id INTEGER NOT NULL,
+    farmer_id INTEGER NOT NULL,
+    training_date DATE NOT NULL,
+    topic VARCHAR(100) NOT NULL,
+    duration_hours DECIMAL(4,1),
+    FOREIGN KEY (officer_id) REFERENCES Extension_Officers(officer_id),
+    FOREIGN KEY (farmer_id) REFERENCES Farmers(farmer_id)
+);
+
+-- Create index for better performance on frequently queried columns
+CREATE INDEX idx_farmer_county ON Farmers(county_id);
+CREATE INDEX idx_farm_farmer ON Farms(farmer_id);
+CREATE INDEX idx_farm_crop ON Farm_Crops(crop_id);
+CREATE INDEX idx_sale_date ON Sales(sale_date);
